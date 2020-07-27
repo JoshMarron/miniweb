@@ -33,7 +33,7 @@
         }                                                                         \
         else                                                                      \
         {                                                                         \
-            printf("%s (line " STRINGIFY(__LINE__) "): " EXPR "\n", __func__);    \
+            printf("%s (line " STRINGIFY(__LINE__) "): %s\n", __func__, EXPR);    \
         }                                                                         \
     } while (false)
 
@@ -47,8 +47,8 @@
         }                                                                        \
         else                                                                     \
         {                                                                        \
-            fprintf(stderr, "%s (line " STRINGIFY(__LINE__) "): " EXPR "\n",     \
-                    __func__);                                                   \
+            fprintf(stderr, "%s (line " STRINGIFY(__LINE__) "): %s\n", __func__, \
+                    EXPR);                                                       \
         }                                                                        \
     } while (false)
 
