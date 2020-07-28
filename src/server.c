@@ -1,5 +1,6 @@
 #include "server.h"
 
+#include "connection_manager.h"
 #include "logging.h"
 
 #include <assert.h>
@@ -21,33 +22,23 @@ static const int    MAX_QUEUED_CONNECTIONS  = 10;
 
 // ==== STRUCTS ====
 
-struct active_connections
-{
-    struct pollfd* connections;
-    size_t         connections_num;
-    size_t         connections_cap;
-};
-
 struct miniweb_server
 {
     int                        sock_fd;
     atomic_bool                should_run;
-    struct active_connections* connections;
+    connection_manager_t*      connections;
 };
 
 // ==== STATIC PROTOTYPES ====
 
 static int miniweb_server_get_bound_socket(char const* const address,
                                            char const* const port);
+static int miniweb_server_listen(struct miniweb_server* server);
 
-static struct active_connections* active_connections_create(size_t initial_capacity);
-static int  active_connections_init(struct active_connections* restrict conns,
-                                    size_t initial_capacity);
-static void
-            active_connections_add_listener_socket(struct active_connections* restrict conns,
-                                                   int                                 sockfd);
-static void active_connections_clean(struct active_connections* restrict conns);
-static void active_connections_destroy(struct active_connections* restrict conns);
+// TODO implement these:
+static int miniweb_server_handle_new_connection(struct miniweb_server* server);
+static int miniweb_server_process_client_event(struct miniweb_server* server,
+                                               int                    connection_fd);
 
 // ==== PUBLIC FUNCTIONS IMPLEMENTATION ====
 
@@ -78,11 +69,10 @@ int miniweb_server_init(miniweb_server_t* restrict server,
 {
     assert(server);
 
-    struct active_connections* conns =
-        active_connections_create(INITIAL_SERVER_CAPACITY);
+    connection_manager_t* conns = connection_manager_create(INITIAL_SERVER_CAPACITY);
     if (!conns)
     {
-        MINIWEB_LOG_ERROR("Failed to create active_connections struct");
+        MINIWEB_LOG_ERROR("Failed to create connection_manager struct");
         return -1;
     }
     server->connections = conns;
@@ -116,22 +106,11 @@ int miniweb_server_start(miniweb_server_t* server)
     }
 
     // Add the listening socket to our maintained connections for polling
-    active_connections_add_listener_socket(server->connections, server->sock_fd);
+    connection_manager_add_listener_socket(server->connections, server->sock_fd);
 
     // And enter our main loop!
     server->should_run = true;
-    for (;;)
-    {
-        // TODO: WRITE THE ACTUAL RUN LOOP
-
-        if (!server->should_run)
-        {
-            MINIWEB_LOG_ERROR("Server for socket %d is stopping!", server->sock_fd);
-            break;
-        }
-    }
-
-    return 0;
+    return miniweb_server_listen(server);
 }
 
 void miniweb_server_stop(miniweb_server_t* server)
@@ -143,7 +122,7 @@ void miniweb_server_clean(miniweb_server_t* restrict server)
 {
     assert(server);
 
-    active_connections_destroy(server->connections);
+    connection_manager_destroy(server->connections);
     memset(server, 0, sizeof(struct miniweb_server));
 }
 
@@ -154,6 +133,37 @@ void miniweb_server_destroy(miniweb_server_t* restrict server)
 }
 
 // ==== STATIC FUNCTIONS IMPLEMENTATION ====
+
+static int miniweb_server_listen(struct miniweb_server* server)
+{
+    server->should_run = true;
+    for (;;)
+    {
+        int recv_fd = -1;
+        while (connection_manager_get_next_event(server->connections, &recv_fd))
+        {
+            if (recv_fd == server->sock_fd)
+            {
+                // NEW CONNECTION
+                miniweb_server_handle_new_connection(server);
+            }
+            else
+            {
+                // NEW MESSAGE FROM CONNECTED CLIENT
+                miniweb_server_process_client_event(server, recv_fd);
+            }
+        }
+
+        if (!server->should_run)
+        {
+            MINIWEB_LOG_ERROR("Server for socket %d is stopping!", server->sock_fd);
+            break;
+        }
+    }
+
+    // We've successfully exited
+    return 0;
+}
 
 static int miniweb_server_get_bound_socket(char const* const address,
                                            char const* const port)
@@ -214,65 +224,3 @@ static int miniweb_server_get_bound_socket(char const* const address,
     return -1;
 }
 
-static struct active_connections* active_connections_create(size_t initial_capacity)
-{
-    struct active_connections* conns = calloc(1, sizeof(struct active_connections));
-    if (!conns)
-    {
-        MINIWEB_LOG_ERROR("Failed to allocate memory for active_connections");
-        return NULL;
-    }
-
-    int rc = active_connections_init(conns, initial_capacity);
-    if (rc != 0)
-    {
-        MINIWEB_LOG_ERROR("Failed to initialise active_connections, rc: %d", rc);
-        free(conns);
-        return NULL;
-    }
-
-    return conns;
-}
-
-static int active_connections_init(struct active_connections* restrict conns,
-                                   size_t initial_capacity)
-{
-    assert(conns);
-
-    struct pollfd* connections = calloc(initial_capacity, sizeof(struct pollfd));
-    if (!connections)
-    {
-        MINIWEB_LOG_ERROR("Failed to allocate memory for pollfd array");
-        return -1;
-    }
-
-    conns->connections     = connections;
-    conns->connections_num = 0;
-    conns->connections_cap = initial_capacity;
-
-    return 0;
-}
-
-static void
-active_connections_add_listener_socket(struct active_connections* restrict conns,
-                                       int                                 sockfd)
-{
-    assert(conns);
-
-    conns->connections[0].fd     = sockfd;
-    conns->connections[0].events = POLLIN;
-}
-
-static void active_connections_clean(struct active_connections* restrict conns)
-{
-    assert(conns);
-
-    free(conns->connections);
-    memset(conns, 0, sizeof(struct active_connections));
-}
-
-static void active_connections_destroy(struct active_connections* restrict conns)
-{
-    if (conns) { active_connections_clean(conns); }
-    free(conns);
-}
