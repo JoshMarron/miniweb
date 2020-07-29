@@ -10,10 +10,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <arpa/inet.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 // CONSTANTS
 
@@ -39,6 +42,15 @@ static int miniweb_server_listen(struct miniweb_server* server);
 static int miniweb_server_handle_new_connection(struct miniweb_server* server);
 static int miniweb_server_process_client_event(struct miniweb_server* server,
                                                int                    connection_fd);
+
+static void* get_sockaddr_in_from_sockaddr(struct sockaddr* sa)
+{
+    if (sa->sa_family == AF_INET) { return &(((struct sockaddr_in*) sa)->sin_addr); }
+    else
+    {
+        return &(((struct sockaddr_in6*) sa)->sin6_addr);
+    }
+}
 
 // ==== PUBLIC FUNCTIONS IMPLEMENTATION ====
 
@@ -142,16 +154,23 @@ static int miniweb_server_listen(struct miniweb_server* server)
         int recv_fd = -1;
         while (connection_manager_get_next_event(server->connections, &recv_fd))
         {
+            MINIWEB_LOG_INFO("Got event: %d", recv_fd);
+            int failed_handles = 0;
             if (recv_fd == server->sock_fd)
             {
                 // NEW CONNECTION
-                miniweb_server_handle_new_connection(server);
+                int rc = miniweb_server_handle_new_connection(server);
+                if (rc != 0) ++failed_handles;
             }
             else
             {
                 // NEW MESSAGE FROM CONNECTED CLIENT
-                miniweb_server_process_client_event(server, recv_fd);
+                int rc = miniweb_server_process_client_event(server, recv_fd);
+                if (rc != 0) ++failed_handles;
             }
+
+            if (failed_handles > 0)
+            { MINIWEB_LOG_ERROR("Failed to handle %d events!", failed_handles); }
         }
 
         if (!server->should_run)
@@ -162,6 +181,82 @@ static int miniweb_server_listen(struct miniweb_server* server)
     }
 
     // We've successfully exited
+    return 0;
+}
+
+static int miniweb_server_handle_new_connection(struct miniweb_server* server)
+{
+    struct sockaddr_storage their_addr = {0};
+    socklen_t               addrlen    = sizeof(their_addr);
+
+    int new_sockfd =
+        accept(server->sock_fd, (struct sockaddr*) &their_addr, &addrlen);
+
+    if (new_sockfd == -1)
+    {
+        MINIWEB_LOG_ERROR("Failed to accept new connection: %d (%s)", errno,
+                          strerror(errno));
+        errno = 0;
+        return -1;
+    }
+
+    char their_addr_string[INET6_ADDRSTRLEN] = {0};
+    inet_ntop(their_addr.ss_family,
+              get_sockaddr_in_from_sockaddr((struct sockaddr*) &their_addr),
+              their_addr_string, INET6_ADDRSTRLEN);
+
+    int rc = connection_manager_add_new_connection(server->connections, new_sockfd);
+    if (rc != 0)
+    {
+        MINIWEB_LOG_ERROR("Failed to add new connection to the manager, rejecting"
+                          "connection from %s",
+                          their_addr_string);
+        return -1;
+    }
+
+    MINIWEB_LOG_INFO("Accepted new connection from: %s on socket %d!",
+                     their_addr_string, new_sockfd);
+    return 0;
+}
+
+static int miniweb_server_process_client_event(struct miniweb_server* server,
+                                               int                    connection_fd)
+{
+    MINIWEB_LOG_INFO("Received event on socket %d", connection_fd);
+
+    char buffer[1024] = {0};
+    int  num_bytes    = recv(connection_fd, buffer, sizeof(buffer), 0);
+    if (num_bytes <= 0)
+    {
+        if (num_bytes == 0)
+        {
+            MINIWEB_LOG_ERROR("Connection on socket %d closed by client",
+                              connection_fd);
+        }
+        else
+        {
+            MINIWEB_LOG_ERROR("Error recv()ing: %d (%s)", errno, strerror(errno));
+        }
+        close(connection_fd);
+        connection_manager_remove_connection(server->connections, connection_fd);
+        return -1;
+    }
+
+    // We got some data! Let's just log it for now :)
+    MINIWEB_LOG_ERROR("Got %d bytes of data from socket %d: '%s'", num_bytes,
+                      connection_fd, buffer);
+    // And send a silly reply!
+    const char message[] = "HTTP/1.1 200 OK\r\n\r\n";
+    int        rc        = send(connection_fd, message, sizeof(message), 0);
+    if (rc == -1)
+    {
+        MINIWEB_LOG_ERROR("Failed to send to socket %d: %d (%s)", connection_fd,
+                          errno, strerror(errno));
+        errno = 0;
+        return -1;
+    }
+    MINIWEB_LOG_INFO("Sent %d bytes of data", rc);
+
     return 0;
 }
 

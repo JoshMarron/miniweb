@@ -15,8 +15,9 @@ void connection_manager_add_listener_socket(connection_manager_t* restrict conns
 bool connection_manager_get_next_event(connection_manager_t* manager,
                                        int*                  sockfd_out);
 
-void connection_manager_add_new_connection(connection_manager_t* manager,
-                                           int                   sockfd);
+int connection_manager_add_new_connection(connection_manager_t* manager, int sockfd);
+
+void connection_manager_remove_connection(connection_manager_t* manager, int sockfd);
 
 void connection_manager_clean(connection_manager_t* restrict conns);
 void connection_manager_destroy(connection_manager_t* restrict conns);

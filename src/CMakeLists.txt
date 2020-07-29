@@ -1,5 +1,6 @@
 add_library(miniweb
             logging.c
+            connection_manager.c
             server.c)
 
 add_executable(miniweb.tsk
