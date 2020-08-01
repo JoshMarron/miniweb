@@ -1,6 +1,7 @@
 #include "server.h"
 
 #include "connection_manager.h"
+#include "http_helpers.h"
 #include "logging.h"
 
 #include <assert.h>
@@ -38,7 +39,6 @@ static int miniweb_server_get_bound_socket(char const* const address,
                                            char const* const port);
 static int miniweb_server_listen(struct miniweb_server* server);
 
-// TODO implement these:
 static int miniweb_server_handle_new_connection(struct miniweb_server* server);
 static int miniweb_server_process_client_event(struct miniweb_server* server,
                                                int                    connection_fd);
@@ -228,34 +228,33 @@ static int miniweb_server_process_client_event(struct miniweb_server* server,
     int  num_bytes    = recv(connection_fd, buffer, sizeof(buffer), 0);
     if (num_bytes <= 0)
     {
+        int rc = 0;
         if (num_bytes == 0)
         {
             MINIWEB_LOG_ERROR("Connection on socket %d closed by client",
                               connection_fd);
+            rc = 0;
         }
         else
         {
             MINIWEB_LOG_ERROR("Error recv()ing: %d (%s)", errno, strerror(errno));
+            rc = -1;
         }
         close(connection_fd);
         connection_manager_remove_connection(server->connections, connection_fd);
-        return -1;
+        return rc;
     }
 
     // We got some data! Let's just log it for now :)
     MINIWEB_LOG_ERROR("Got %d bytes of data from socket %d: '%s'", num_bytes,
                       connection_fd, buffer);
     // And send a silly reply!
-    const char message[] = "HTTP/1.1 200 OK\r\n\r\n";
-    int        rc        = send(connection_fd, message, sizeof(message), 0);
-    if (rc == -1)
+    int rc = http_helpers_send_html_file_response(connection_fd, "res/index.html");
+    if (rc != 0)
     {
-        MINIWEB_LOG_ERROR("Failed to send to socket %d: %d (%s)", connection_fd,
-                          errno, strerror(errno));
-        errno = 0;
-        return -1;
+        MINIWEB_LOG_ERROR("Failed to send response to socket %d: %d", connection_fd,
+                          rc);
     }
-    MINIWEB_LOG_INFO("Sent %d bytes of data", rc);
 
     return 0;
 }
@@ -290,6 +289,16 @@ static int miniweb_server_get_bound_socket(char const* const address,
             MINIWEB_LOG_ERROR(
                 "Failed to get socket for address: %s and port: %s (%s)", address,
                 port, strerror(errno));
+            errno = 0;
+            continue;
+        }
+
+        int yes = 1;
+        int rc  = setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+        if (rc == -1)
+        {
+            MINIWEB_LOG_ERROR("Failed to set socket to allow address reuse: %d (%s)",
+                              errno, strerror(errno));
             errno = 0;
             continue;
         }

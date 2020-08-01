@@ -13,7 +13,7 @@ void sig_handler(int signum)
 
 int main(int argc, char* argv[argc + 1])
 {
-    g_server = miniweb_server_create("127.0.0.1", "9999");
+    g_server = miniweb_server_create("127.0.0.1", "6969");
     if (!g_server)
     {
         MINIWEB_LOG_ERROR("Failed to create a server!");
@@ -33,9 +33,11 @@ int main(int argc, char* argv[argc + 1])
     if (rc != 0)
     {
         MINIWEB_LOG_ERROR("Server did not exit cleanly, rc: %d", rc);
+        miniweb_server_destroy(g_server);
         return EXIT_FAILURE;
     }
 
+    miniweb_server_destroy(g_server);
     MINIWEB_LOG_INFO("Goodbye!");
     return EXIT_SUCCESS;
 }

@@ -189,7 +189,11 @@ void connection_manager_clean(struct connection_manager* restrict conns)
 
     for (size_t i = 0; i < conns->connections_cap; ++i)
     {
-        if (conns->connections[i].events != 0) { close(conns->connections[i].fd); }
+        if (conns->connections[i].events != 0)
+        {
+            MINIWEB_LOG_INFO("Closing socket %d", conns->connections[i].fd);
+            close(conns->connections[i].fd);
+        }
     }
 
     free(conns->connections);

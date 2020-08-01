@@ -1,4 +1,5 @@
 add_library(miniweb
+            http_helpers.c
             logging.c
             connection_manager.c
             server.c)
