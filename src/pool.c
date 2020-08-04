@@ -118,12 +118,6 @@ int pool_create(struct pool* restrict pool,
 
 struct pool_handle pool_alloc(pool_t* pool)
 {
-    if (pool->next_free_block == SIZE_MAX)
-    {
-        int rc = pool_add_meta_block(pool);
-        if (rc != 0) { return (struct pool_handle) {.id = SIZE_MAX, .data = NULL}; }
-    }
-
     // Let's look in the block at next_free_block to see if it's really free
     size_t control_index = pool->next_free_block;
     for (; control_index <= pool->total_num_blocks; ++control_index)
@@ -208,7 +202,8 @@ static int pool_add_meta_block(struct pool* pool)
 
     // Now we need to grow the control array...
     struct control_block* new_control =
-        realloc(pool->control, pool->total_num_blocks + new_meta_size);
+        realloc(pool->control, (pool->total_num_blocks + new_meta_size) *
+                                   sizeof(struct control_block));
     if (!new_control)
     {
         MINIWEB_LOG_ERROR("Failed to grow the control array to size %zu",
@@ -227,6 +222,8 @@ static int pool_add_meta_block(struct pool* pool)
     {
         new_control[i].parent  = new_meta;
         new_control[i].is_free = true;
+        new_control[i].block =
+            new_meta->blocks + ((i - pool->total_num_blocks) * pool->block_size);
     }
 
     pool->next_free_block  = pool->total_num_blocks;
