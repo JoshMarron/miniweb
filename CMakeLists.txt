@@ -8,10 +8,22 @@ project(miniweb LANGUAGES C)
 
 set(CMAKE_C_STANDARD 11)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake-modules)
+
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-fdiagnostics-color=always)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+elseif(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     add_compile_options(-fcolor-diagnostics)
+endif()
+
+if (DEFINED MINIWEB_COVERAGE_BUILD)
+    if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        add_compile_options(-fprofile-instr-generate -fcoverage-mapping)
+        add_link_options(-fprofile-instr-generate -fcoverage-mapping)
+    elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        add_compile_options(--coverage)
+        add_link_options(--coverage)
+    endif()
 endif()
 
 
