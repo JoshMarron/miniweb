@@ -7,6 +7,19 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef MINIWEB_TESTING
+extern void* _test_malloc(const size_t size, char const* file, int const line);
+extern void*
+_test_calloc(size_t nmemb, size_t size, char const* file, int const line);
+extern void  _test_free(void* ptr, char const* file, int const line);
+extern void* _test_realloc(void* ptr, size_t size, char const* file, int const line);
+
+    #define malloc(size) _test_malloc(size, __FILE__, __LINE__)
+    #define calloc(n, size) _test_calloc(n, size, __FILE__, __LINE__)
+    #define free(ptr)       _test_free(ptr, __FILE__, __LINE__)
+    #define realloc(ptr, size) _test_realloc(ptr, size, __FILE__, __LINE__)
+#endif
+
 const size_t DEFAULT_NUM_BLOCKS = 64;
 
 // ==== DATA TYPES ====

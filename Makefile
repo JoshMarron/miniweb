@@ -33,6 +33,13 @@ coverage-run:
 	    llvm-cov report ./test/miniweb.t --instr-profile=miniweb.profdata \
 		--ignore-filename-regex="vcpkg/*"
 
+coverage-report:
+	cd build/covBuild && \
+	    LLVM_PROFILE_FILE="miniweb.profraw" ./test/miniweb.t && \
+	    llvm-profdata merge miniweb.profraw -o miniweb.profdata && \
+	    llvm-cov show ./test/miniweb.t --instr-profile=miniweb.profdata \
+		--format="html" --ignore-filename-regex="vcpkg/*" --output-dir=report/
+
 coverage: coverage-build coverage-run
 
 clean:

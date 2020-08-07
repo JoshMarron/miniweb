@@ -15,8 +15,7 @@ struct pool_test_state
 
 static void basic_test(void** state)
 {
-    struct pool_test_state* pool_state = *state;
-    pool_t*                pool       = pool_state->pool;
+    pool_t* pool = pool_init(sizeof(uint64_t), 8);
 
     pool_handle_t handle = pool_alloc(pool);
     size_t        id     = handle.id;
@@ -30,12 +29,12 @@ static void basic_test(void** state)
     assert_int_equal(id, handle.id);
 
     pool_free(pool, handle);
+    pool_destroy(pool);
 }
 
 static void test_resize(void** state)
 {
-    struct pool_test_state* pool_state = *state;
-    pool_t*                 pool       = pool_state->pool;
+    pool_t* pool = pool_init(sizeof(uint64_t), 8);
 
     for (size_t i = 0; i < 9; ++i)
     {
@@ -51,43 +50,14 @@ static void test_resize(void** state)
     *ptr          = 42;
 
     pool_free(pool, handle);
-}
-
-static int setup(void** state)
-{
-    pool_t* pool = pool_init(sizeof(uint64_t), 8);
-    if (!pool)
-    {
-        return -1;
-    }
-
-    struct pool_test_state* pool_state = calloc(1, sizeof(struct pool_test_state));
-    if (!pool_state)
-    {
-        pool_destroy(pool);
-        return -1;
-    }
-
-    pool_state->pool = pool;
-
-    *state = pool_state;
-    return 0;
-}
-
-static int teardown(void** state)
-{
-    struct pool_test_state* pool_state = *state;
-    pool_destroy(pool_state->pool);
-    free(pool_state);
-
-    return 0;
+    pool_destroy(pool);
 }
 
 int main(void)
 {
     const struct CMUnitTest tests[] = {
-        cmocka_unit_test_setup_teardown(basic_test, setup, teardown),
-        cmocka_unit_test_setup_teardown(test_resize, setup, teardown),
+        cmocka_unit_test(basic_test),
+        cmocka_unit_test(test_resize),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
