@@ -26,6 +26,10 @@ const size_t DEFAULT_NUM_BLOCKS = 64;
 
 struct meta_block;
 
+// TODO Potential performance improvement - give each control block an optional
+// "next free" which could be set when we're changing the value of the
+// next_free_block This would help with situations where we free the first block in
+// the pool and cause the next allocation to have to scrub through the entire pool
 struct control_block
 {
     unsigned char* block;
@@ -143,6 +147,9 @@ struct pool_handle pool_alloc(pool_t* pool)
         }
         if (pool->control[control_index].is_free) { break; }
     }
+
+    // The next free block will either be the one after this, or a new meta block
+    pool->next_free_block = control_index + 1;
 
     struct control_block* control = &pool->control[control_index];
 

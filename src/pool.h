@@ -23,6 +23,8 @@ void pool_clear(pool_t* restrict pool);
 void pool_destroy(pool_t* restrict pool);
 
 pool_handle_t pool_alloc(pool_t* pool);
+pool_handle_t pool_calloc(pool_t* pool);
+
 // Can we do pointer comparisons to find which control block I belong to with binary
 // search?
 void pool_free(pool_t* pool, pool_handle_t handle);
