@@ -48,6 +48,7 @@ struct hash
 
     hashfunc* do_hash;
     pool_t*   entry_pool;
+    pool_t*   iter_pool;
 };
 
 // ==== STATIC FUNCTIONS ====
@@ -119,6 +120,53 @@ static int hash_resize(struct hash* table)
     return 0;
 }
 
+static void* iterate_for_next_value(struct hash const* table, struct hash_iter* iter)
+{
+    size_t index = iter->started ? iter->last_element + 1 : 0;
+    iter->started = true;
+    for (; index < table->storage_size; ++index)
+    {
+        struct hash_entry* entry = table->storage[index].data;
+        if (entry)
+        {
+            // If there's a next value, set ourselves up for chain iteration
+            if (entry->next.data) { iter->last_hash_val = entry->hash_val; }
+            iter->last_element = index;
+            return entry->data;
+        }
+    }
+
+    // We couldn't find any new values
+    return NULL;
+}
+
+static void* get_next_chain_value(struct hash const* table, struct hash_iter* iter)
+{
+    pool_handle_t* handle_entry = &(table->storage[iter->last_element]);
+    while (handle_entry->data)
+    {
+        struct hash_entry* entry = handle_entry->data;
+        if (entry->hash_val == iter->last_hash_val)
+        {
+            // This is the last value we returned, so return the next one.
+            // If the next one's next is NULL, then also reset last_hash_val to 0
+            pool_handle_t* handle_to_ret = &entry->next;
+            struct hash_entry* entry_to_ret  = handle_to_ret->data;
+            if (!entry_to_ret->next.data) { iter->last_hash_val = 0; }
+            return entry_to_ret->data;
+        }
+
+        handle_entry = &entry->next;
+    }
+
+    // It shouldn't be possible to get here, so we should complain about an
+    // invaliated iterator
+    MINIWEB_LOG_ERROR(
+        "Iterator may have been invalidated? last_hash_val: %zu for chain "
+        "at index: %zu was not found!",
+        iter->last_hash_val, iter->last_element);
+    return NULL;
+}
 // ==== PUBLIC FUNCTION IMPLEMENTATIONS ====
 
 struct hash* hash_init_string_key(size_t init_size, size_t key_offset)
@@ -165,6 +213,9 @@ int hash_add(struct hash* table, void* data)
     assert(table);
     assert(data);
 
+    // Key is already in the map!
+    if (hash_find(table, data)) { return -2; }
+
     if (((double) table->num_entries / (double) table->storage_size) >
         MAX_LOAD_FACTOR)
     {
@@ -176,7 +227,7 @@ int hash_add(struct hash* table, void* data)
     size_t bucket   = hash_val % table->storage_size;
 
     // Create a new hash_entry
-    pool_handle_t new_handle = pool_alloc(table->entry_pool);
+    pool_handle_t new_handle = pool_calloc(table->entry_pool);
     if (!new_handle.data)
     {
         MINIWEB_LOG_ERROR("Failed to allocate new hash entry!");
@@ -189,7 +240,7 @@ int hash_add(struct hash* table, void* data)
     new_entry->data              = data;
     new_entry->hash_val          = hash_val;
     new_entry->next              = *current_entry;
-    new_entry->prev              = (pool_handle_t) {.data = NULL};
+    new_entry->prev              = (pool_handle_t) {0};
     // If there's a real element, link it back to the new node
     if (current_entry->data)
     { ((struct hash_entry*) current_entry->data)->prev = new_handle; }
@@ -256,6 +307,26 @@ bool hash_del(hash_t* table, void const* key)
     }
 
     return false;
+}
+
+void* hash_get_next_element(struct hash const* table, struct hash_iter* iterator)
+{
+    // Look through each bucket and find the next entry
+    // The iterator->next_element value tells us where to start looking
+    // Return NULL when we're done iterating
+    // Two cases to this function:
+    //    - last_hash_val is 0 - we need to scan the buckets for a new chain
+    //    - last_hash_val is not zero - we need to look through the list at
+    //    last_element
+    return iterator->last_hash_val == 0 ? iterate_for_next_value(table, iterator) :
+                                          get_next_chain_value(table, iterator);
+}
+
+size_t hash_get_size(struct hash const* table)
+{
+    assert(table);
+
+    return table->num_entries;
 }
 
 void hash_destroy(struct hash* table)
