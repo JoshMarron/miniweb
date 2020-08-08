@@ -32,6 +32,7 @@ struct hash_entry
     void*  data;
     size_t hash_val;
     // So that we can make the linked list of entries
+    pool_handle_t prev;
     pool_handle_t next;
 };
 
@@ -188,6 +189,10 @@ int hash_add(struct hash* table, void* data)
     new_entry->data              = data;
     new_entry->hash_val          = hash_val;
     new_entry->next              = *current_entry;
+    new_entry->prev              = (pool_handle_t) {.data = NULL};
+    // If there's a real element, link it back to the new node
+    if (current_entry->data)
+    { ((struct hash_entry*) current_entry->data)->prev = new_handle; }
 
     table->storage[bucket] = new_handle;
     ++table->num_entries;
@@ -232,7 +237,17 @@ bool hash_del(hash_t* table, void const* key)
         struct hash_entry* entry = handle_entry->data;
         if (entry->hash_val == hash_val)
         {
-            // Delete the node
+            // Am I the head?
+            if (!entry->prev.data) { table->storage[bucket] = entry->next; }
+            else
+            {
+                struct hash_entry* prev_entry = entry->prev.data;
+                struct hash_entry* next_entry = entry->next.data;
+                prev_entry->next              = entry->next;
+                if (next_entry) { next_entry->prev = entry->prev; }
+            }
+            pool_free(table->entry_pool, *handle_entry);
+
             return true;
         }
 

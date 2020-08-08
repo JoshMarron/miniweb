@@ -94,12 +94,36 @@ static void test_growing_table(void** state)
     hash_destroy(table);
 }
 
+static void test_add_then_del(void** state)
+{
+    hash_t* table = hash_init_string_key(16, 0);
+    assert_non_null(table);
+
+    struct string_key element = {.key = "Hello!", .val = 456};
+
+    int rc = hash_add(table, &element);
+    assert_int_equal(0, rc);
+
+    struct string_key* find_ptr = hash_find(table, "Hello!");
+    assert_non_null(find_ptr);
+    assert_int_equal(element.val, find_ptr->val);
+
+    assert_true(hash_del(table, "Hello!"));
+
+    // Check it was actually deleted
+    find_ptr = hash_find(table, "Hello!");
+    assert_null(find_ptr);
+
+    hash_destroy(table);
+}
+
 int run_hash_tests()
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(add_and_find_single_element),
         cmocka_unit_test(add_and_find_multiple_elements),
         cmocka_unit_test(test_growing_table),
+        cmocka_unit_test(test_add_then_del),
     };
 
     return cmocka_run_group_tests_name("HashTableTests", tests, NULL, NULL);
