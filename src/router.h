@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 typedef struct router router_t;
+typedef int           routerfunc(void* user_data, char const* const request);
 
 int router_add_route(size_t routelen, char const route[routelen]);
 

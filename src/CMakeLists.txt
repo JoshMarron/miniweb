@@ -1,4 +1,5 @@
 add_library(miniweb
+            hash.c
             http_helpers.c
             logging.c
             connection_manager.c
@@ -7,6 +8,7 @@ add_library(miniweb
 
 add_library(miniweb-test
             logging.c
+            hash.c
             pool.c)
 
 target_compile_options(miniweb-test PRIVATE -DMINIWEB_TESTING)

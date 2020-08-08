@@ -1,3 +1,5 @@
+#include "pool.t.h"
+
 #include <pool.h>
 
 #include <setjmp.h>
@@ -100,7 +102,7 @@ static void test_reallocating_over_and_over(void** state)
     pool_destroy(pool);
 }
 
-int main(void)
+int run_pool_tests()
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(basic_test),
@@ -110,5 +112,5 @@ int main(void)
         cmocka_unit_test(test_big_pool),
     };
 
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests_name("PoolTests", tests, NULL, NULL);
 }
