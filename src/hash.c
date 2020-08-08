@@ -247,6 +247,7 @@ bool hash_del(hash_t* table, void const* key)
                 if (next_entry) { next_entry->prev = entry->prev; }
             }
             pool_free(table->entry_pool, *handle_entry);
+            --table->num_entries;
 
             return true;
         }
