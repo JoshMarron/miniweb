@@ -1,7 +1,8 @@
 add_executable(miniweb.t
                main.t.c
                pool.t.c
-               hash.t.c)
+               hash.t.c
+               router.t.c)
 
 find_package(cmocka CONFIG REQUIRED)
 target_include_directories(miniweb.t PRIVATE ${CMOCKA_INCLUDE_DIR} ${CMAKE_SOURCE_DIR}/src)
