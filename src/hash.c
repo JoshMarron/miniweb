@@ -122,7 +122,7 @@ static int hash_resize(struct hash* table)
 
 static void* iterate_for_next_value(struct hash const* table, struct hash_iter* iter)
 {
-    size_t index = iter->started ? iter->last_element + 1 : 0;
+    size_t index  = iter->started ? iter->last_element + 1 : 0;
     iter->started = true;
     for (; index < table->storage_size; ++index)
     {
@@ -150,7 +150,7 @@ static void* get_next_chain_value(struct hash const* table, struct hash_iter* it
         {
             // This is the last value we returned, so return the next one.
             // If the next one's next is NULL, then also reset last_hash_val to 0
-            pool_handle_t* handle_to_ret = &entry->next;
+            pool_handle_t*     handle_to_ret = &entry->next;
             struct hash_entry* entry_to_ret  = handle_to_ret->data;
             if (!entry_to_ret->next.data) { iter->last_hash_val = 0; }
             return entry_to_ret->data;
@@ -197,9 +197,9 @@ struct hash* hash_init_string_key(size_t init_size, size_t key_offset)
         return NULL;
     }
 
-    table->storage    = storage;
-    table->key_offset = key_offset;
-    table->key_len    = SIZE_MAX;
+    table->storage      = storage;
+    table->key_offset   = key_offset;
+    table->key_len      = SIZE_MAX;
     table->storage_size = init_size;
     table->num_entries  = 0;
     table->do_hash      = &djb2_hash_str;
@@ -218,9 +218,7 @@ int hash_add(struct hash* table, void* data)
 
     if (((double) table->num_entries / (double) table->storage_size) >
         MAX_LOAD_FACTOR)
-    {
-        hash_resize(table);
-    }
+    { hash_resize(table); }
 
     unsigned char const* restrict data_p = data;
     size_t hash_val = table->do_hash(data_p + table->key_offset, table->key_len);

@@ -12,8 +12,8 @@
 
 struct string_key
 {
-    char        key[256];
-    uint64_t    val;
+    char     key[256];
+    uint64_t val;
 };
 
 static void add_and_find_single_element(void** state)
@@ -186,10 +186,10 @@ static void test_basic_iteration(void** state)
         assert_non_null(find_ptr);
     }
 
-    uint64_t seen_vals[sizeof(elements) / sizeof(struct string_key)] = {0};
+    uint64_t           seen_vals[sizeof(elements) / sizeof(struct string_key)] = {0};
     hash_iter_t        iterator                                                = {0};
-    struct string_key* iter_ptr = NULL;
-    size_t             vals_found                                              = 0;
+    struct string_key* iter_ptr   = NULL;
+    size_t             vals_found = 0;
     while ((iter_ptr = hash_get_next_element(table, &iterator)))
     {
         uint64_t val = iter_ptr->val;

@@ -22,8 +22,8 @@ static void basic_test(void** state)
     pool_handle_t handle = pool_alloc(pool);
     size_t        id     = handle.id;
 
-    uint64_t*     ptr    = handle.data;
-    *ptr                 = 42;
+    uint64_t* ptr = handle.data;
+    *ptr          = 42;
     pool_free(pool, handle);
 
     // We should get the same block back

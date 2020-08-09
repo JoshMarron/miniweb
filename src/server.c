@@ -28,9 +28,9 @@ static const int    MAX_QUEUED_CONNECTIONS  = 10;
 
 struct miniweb_server
 {
-    int                        sock_fd;
-    atomic_bool                should_run;
-    connection_manager_t*      connections;
+    int                   sock_fd;
+    atomic_bool           should_run;
+    connection_manager_t* connections;
 };
 
 // ==== STATIC PROTOTYPES ====
@@ -327,4 +327,3 @@ static int miniweb_server_get_bound_socket(char const* const address,
     freeaddrinfo(info);
     return -1;
 }
-

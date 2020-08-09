@@ -57,9 +57,9 @@ int connection_manager_init(struct connection_manager* restrict conns,
         return -1;
     }
 
-    conns->connections     = connections;
-    conns->connections_num = 0;
-    conns->connections_cap = initial_capacity;
+    conns->connections         = connections;
+    conns->connections_num     = 0;
+    conns->connections_cap     = initial_capacity;
     conns->current_event_index = -1;
 
     return 0;
@@ -108,7 +108,7 @@ bool connection_manager_get_next_event(connection_manager_t* manager,
     {
         if (manager->connections[i].revents & POLLIN)
         {
-            *sockfd_out = manager->connections[i].fd;
+            *sockfd_out                  = manager->connections[i].fd;
             manager->current_event_index = i + 1;
             return true;
         }
@@ -128,7 +128,7 @@ int connection_manager_add_new_connection(struct connection_manager* manager,
     if (new_index == SIZE_MAX)
     {
         // Need to allocate a new buffer
-        size_t new_size = manager->connections_cap * 2;
+        size_t         new_size = manager->connections_cap * 2;
         struct pollfd* new_buf =
             realloc(manager->connections, new_size * sizeof(struct pollfd));
         if (!new_buf)

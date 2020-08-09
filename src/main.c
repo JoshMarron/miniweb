@@ -23,7 +23,7 @@ int main(int argc, char* argv[argc + 1])
     // Setup the termination handler
     struct sigaction signal_action = {0};
     sigemptyset(&signal_action.sa_mask);
-    signal_action.sa_handler       = sig_handler;
+    signal_action.sa_handler = sig_handler;
     sigaction(SIGINT, &signal_action, NULL);
     sigaction(SIGTERM, &signal_action, NULL);
 

@@ -19,7 +19,7 @@ static char const OK_HEADER_TEMPLATE[] =
     "HTTP/1.1 200 OK\r\nDate: %s\r\nContent-Type: text/html\r\nConnection: "
     "keep-alive\r\nKeep-Alive: timeout=300\r\nContent-Length: %zu\r\n\r\n";
 
-static char const DATE_FORMAT[] = "%a, %d %b %Y %T GMT";
+static char const   DATE_FORMAT[] = "%a, %d %b %Y %T GMT";
 static const size_t DATE_BUF_SIZE = 40;
 
 static const size_t OK_HEADER_BUF_SIZE =
@@ -30,7 +30,7 @@ static const size_t OK_HEADER_BUF_SIZE =
 static const char* get_now_string(size_t bufsize, char buffer[bufsize]);
 static off_t       get_html_filesize(int file_fd);
 static int send_header(int sockfd, size_t data_size, char const data[data_size]);
-static int         send_html_file(int sockfd, int file_fd, off_t filesize);
+static int send_html_file(int sockfd, int file_fd, off_t filesize);
 
 // ==== PUBLIC FUNCTIONS IMPLEMENTATION ====
 
@@ -123,7 +123,7 @@ static int send_header(int sockfd, size_t data_size, char const data[data_size])
 
 static int send_html_file(int sockfd, int file_fd, off_t filesize)
 {
-    off_t  offset     = 0;
+    off_t offset = 0;
     while (filesize > 0)
     {
         ssize_t bytes_sent = sendfile(sockfd, file_fd, &offset, filesize);
