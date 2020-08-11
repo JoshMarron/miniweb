@@ -31,6 +31,7 @@ struct miniweb_server
     int                   sock_fd;
     atomic_bool           should_run;
     connection_manager_t* connections;
+    router_t*             router;
 };
 
 // ==== STATIC PROTOTYPES ====
@@ -55,7 +56,8 @@ static void* get_sockaddr_in_from_sockaddr(struct sockaddr* sa)
 // ==== PUBLIC FUNCTIONS IMPLEMENTATION ====
 
 struct miniweb_server* miniweb_server_create(char const* const address,
-                                             char const* const port)
+                                             char const* const port,
+                                             router_t*         router)
 {
     struct miniweb_server* server = calloc(1, sizeof(struct miniweb_server));
     if (!server)
@@ -64,7 +66,7 @@ struct miniweb_server* miniweb_server_create(char const* const address,
         return NULL;
     }
 
-    int rc = miniweb_server_init(server, address, port);
+    int rc = miniweb_server_init(server, address, port, router);
     if (rc != 0)
     {
         MINIWEB_LOG_ERROR("Failed to initialise miniweb_server, rc: %d", rc);
@@ -77,7 +79,8 @@ struct miniweb_server* miniweb_server_create(char const* const address,
 
 int miniweb_server_init(miniweb_server_t* restrict server,
                         char const* const          address,
-                        char const* const          port)
+                        char const* const          port,
+                        router_t*                  router)
 {
     assert(server);
 
@@ -100,6 +103,7 @@ int miniweb_server_init(miniweb_server_t* restrict server,
     }
 
     server->sock_fd = socket;
+    server->router  = router;
 
     return 0;
 }
@@ -134,6 +138,7 @@ void miniweb_server_clean(miniweb_server_t* restrict server)
 {
     assert(server);
 
+    router_destroy(server->router);
     connection_manager_destroy(server->connections);
     memset(server, 0, sizeof(struct miniweb_server));
 }

@@ -5,12 +5,14 @@ add_library(miniweb
             connection_manager.c
             pool.c
             router.c
+            miniweb_response.c
             server.c)
 
 add_library(miniweb-test
             logging.c
             hash.c
             router.c
+            miniweb_response.c
             pool.c)
 
 target_compile_options(miniweb-test PRIVATE -DMINIWEB_TESTING)

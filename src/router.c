@@ -57,7 +57,7 @@ struct router* router_init(void)
         return NULL;
     }
 
-    struct router* router = calloc(1, sizeof(router));
+    struct router* router = calloc(1, sizeof(struct router));
     if (!router)
     {
         MINIWEB_LOG_ERROR("Failed to allocate space for router!");
@@ -126,16 +126,17 @@ routerfunc* router_get_route_func(struct router const* restrict router,
     return found_route->func;
 }
 
-int router_invoke_route_func(struct router const* restrict router,
-                             char const                    route[static 1],
-                             void*                         user_data,
-                             char const* const             request)
+miniweb_response_t router_invoke_route_func(struct router const* restrict router,
+                                            char const        route[static 1],
+                                            void*             user_data,
+                                            char const* const request)
 {
     struct route* found_route = hash_find(router->route_table, route);
     if (!found_route)
     {
         MINIWEB_LOG_ERROR("Could not find route %s in router_table", route);
-        return -1;
+        // TODO: Make this return a proper 404
+        return miniweb_build_text_response("404");
     }
 
     return found_route->func(user_data, request);

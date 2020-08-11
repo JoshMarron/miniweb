@@ -1,4 +1,5 @@
 #include "logging.h"
+#include "router.h"
 #include "server.h"
 
 #include <signal.h>
@@ -11,12 +12,35 @@ void sig_handler(int signum)
     miniweb_server_stop(g_server);
 }
 
+miniweb_response_t default_route_handler(void* user_data, char const request[const])
+{
+    MINIWEB_LOG_INFO("Received request: %s", request);
+
+    return miniweb_build_file_response("res/index.html");
+}
+
 int main(int argc, char* argv[argc + 1])
 {
-    g_server = miniweb_server_create("127.0.0.1", "6969");
+    router_t* router = router_init();
+    if (!router)
+    {
+        MINIWEB_LOG_ERROR("Failed to create router!");
+        return EXIT_FAILURE;
+    }
+
+    int rc = router_add_route(router, "/", default_route_handler);
+    if (rc != 0)
+    {
+        MINIWEB_LOG_ERROR("Failed to add route for '/', rc: %d", rc);
+        router_destroy(router);
+        return EXIT_FAILURE;
+    }
+
+    g_server = miniweb_server_create("127.0.0.1", "6969", router);
     if (!g_server)
     {
         MINIWEB_LOG_ERROR("Failed to create a server!");
+        router_destroy(router);
         return EXIT_FAILURE;
     }
 
@@ -28,7 +52,7 @@ int main(int argc, char* argv[argc + 1])
     sigaction(SIGTERM, &signal_action, NULL);
 
     MINIWEB_LOG_INFO("I AM MINIWEB, STARTING SERVER!");
-    int rc = miniweb_server_start(g_server);
+    rc = miniweb_server_start(g_server);
 
     if (rc != 0)
     {
