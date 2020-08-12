@@ -30,7 +30,8 @@ struct router
 struct route
 {
     char          route_name[ROUTE_MAX_LENGTH + 1];
-    routerfunc* func;
+    routerfunc*   func;
+    void*         user_data;
     pool_handle_t handle; // Self-referential handle
 };
 
@@ -83,7 +84,8 @@ void router_destroy(router_t* restrict router)
 int router_add_route_inner(struct router* restrict router,
                            char const              route[static 1],
                            char const              func_name[static 1],
-                           routerfunc*             func)
+                           routerfunc*             func,
+                           void*                   user_data)
 {
     pool_handle_t new_route_handle = pool_alloc(router->route_pool);
     struct route* new_route        = new_route_handle.data;
@@ -97,8 +99,9 @@ int router_add_route_inner(struct router* restrict router,
     strncpy(new_route->route_name, route, ROUTE_MAX_LENGTH);
     new_route->route_name[ROUTE_MAX_LENGTH] = '\0';
 
-    new_route->func   = func;
-    new_route->handle = new_route_handle;
+    new_route->func      = func;
+    new_route->user_data = user_data;
+    new_route->handle    = new_route_handle;
 
     int rc = hash_add(router->route_table, new_route);
     if (rc != 0)
@@ -128,7 +131,6 @@ routerfunc* router_get_route_func(struct router const* restrict router,
 
 miniweb_response_t router_invoke_route_func(struct router const* restrict router,
                                             char const        route[static 1],
-                                            void*             user_data,
                                             char const* const request)
 {
     struct route* found_route = hash_find(router->route_table, route);
@@ -139,5 +141,5 @@ miniweb_response_t router_invoke_route_func(struct router const* restrict router
         return miniweb_build_text_response("404");
     }
 
-    return found_route->func(user_data, request);
+    return found_route->func(found_route->user_data, request);
 }

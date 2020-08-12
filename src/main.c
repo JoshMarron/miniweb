@@ -2,6 +2,7 @@
 #include "router.h"
 #include "server.h"
 
+#include <assert.h>
 #include <signal.h>
 #include <stdlib.h>
 
@@ -19,6 +20,13 @@ miniweb_response_t default_route_handler(void* user_data, char const request[con
     return miniweb_build_file_response("res/index.html");
 }
 
+miniweb_response_t hello_route_handler(void* user_data, char const request[const])
+{
+    assert(request);
+
+    return miniweb_build_file_response("res/hello.html");
+}
+
 int main(int argc, char* argv[argc + 1])
 {
     router_t* router = router_init();
@@ -28,10 +36,18 @@ int main(int argc, char* argv[argc + 1])
         return EXIT_FAILURE;
     }
 
-    int rc = router_add_route(router, "/", default_route_handler);
+    int rc = router_add_route(router, "/", default_route_handler, NULL);
     if (rc != 0)
     {
         MINIWEB_LOG_ERROR("Failed to add route for '/', rc: %d", rc);
+        router_destroy(router);
+        return EXIT_FAILURE;
+    }
+
+    rc = router_add_route(router, "/hello", hello_route_handler, NULL);
+    if (rc != 0)
+    {
+        MINIWEB_LOG_ERROR("Failed to add route for '/hello', rc: %d", rc);
         router_destroy(router);
         return EXIT_FAILURE;
     }

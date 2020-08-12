@@ -31,7 +31,7 @@ static void test_router_basic_test(void** state)
     router_t* router = router_init();
     assert_non_null(router);
 
-    int       rc     = router_add_route(router, "testroute", test_callback);
+    int rc = router_add_route(router, "testroute", test_callback, &test_data);
     assert_int_equal(0, rc);
 
     routerfunc* func = router_get_route_func(router, "testroute");
@@ -42,8 +42,8 @@ static void test_router_basic_test(void** state)
     assert_int_equal(123, test_data.val_to_change);
 
     test_data.val_to_change = 0;
-    response = router_invoke_route_func(router, "testroute", &test_data,
-                                        "This is a fake request");
+    response =
+        router_invoke_route_func(router, "testroute", "This is a fake request");
     assert_string_equal("Hello!", response.body.text_response.text_response);
     assert_int_equal(123, test_data.val_to_change);
 
@@ -58,8 +58,8 @@ static void test_returns_null_on_route_not_find(void** state)
     routerfunc* func = router_get_route_func(router, "notfoundroute");
     assert_null(func);
 
-    miniweb_response_t response = router_invoke_route_func(
-        router, "notfoundroute2", NULL, "This is a fake request");
+    miniweb_response_t response =
+        router_invoke_route_func(router, "notfoundroute2", "This is a fake request");
     assert_string_equal("404", response.body.text_response.text_response);
 
     router_destroy(router);

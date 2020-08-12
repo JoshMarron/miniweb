@@ -253,12 +253,24 @@ static int miniweb_server_process_client_event(struct miniweb_server* server,
     // We got some data! Let's just log it for now :)
     MINIWEB_LOG_ERROR("Got %d bytes of data from socket %d: '%s'", num_bytes,
                       connection_fd, buffer);
-    // And send a silly reply!
-    int rc = http_helpers_send_html_file_response(connection_fd, "res/index.html");
+
+    char               routebuf[ROUTE_MAX_LENGTH] = {0};
+    char const* route = http_helpers_get_route(buffer, sizeof(routebuf), routebuf);
+    if (!route)
+    {
+        MINIWEB_LOG_ERROR("Failed to get route from request!");
+        return -1;
+    }
+
+    miniweb_response_t response =
+        router_invoke_route_func(server->router, route, buffer);
+
+    int rc = http_helpers_send_response(connection_fd, &response);
     if (rc != 0)
     {
         MINIWEB_LOG_ERROR("Failed to send response to socket %d: %d", connection_fd,
                           rc);
+        return -2;
     }
 
     return 0;

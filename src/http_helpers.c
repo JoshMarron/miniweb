@@ -15,6 +15,8 @@
 
 // ==== CONSTANTS ====
 
+static char const ERROR_404_RESPONSE_FILE[] = "res/404.html";
+
 static char const OK_HEADER_TEMPLATE[] =
     "HTTP/1.1 200 OK\r\nDate: %s\r\nContent-Type: text/html\r\nConnection: "
     "keep-alive\r\nKeep-Alive: timeout=300\r\nContent-Length: %zu\r\n\r\n";
@@ -33,6 +35,27 @@ static int send_header(int sockfd, size_t data_size, char const data[data_size])
 static int send_html_file(int sockfd, int file_fd, off_t filesize);
 
 // ==== PUBLIC FUNCTIONS IMPLEMENTATION ====
+
+int http_helpers_send_response(int sockfd, miniweb_response_t const* const response)
+{
+    assert(response);
+
+    switch (response->resp_type)
+    {
+        case MINIWEB_RESPONSE_FILE_TYPE:
+            return http_helpers_send_html_file_response(
+                sockfd, response->body.file_response.file_name);
+        case MINIWEB_RESPONSE_TEXT_TYPE:
+            MINIWEB_LOG_ERROR("Text response not yet supported!");
+            return http_helpers_send_html_file_response(sockfd,
+                                                        ERROR_404_RESPONSE_FILE);
+        default:
+            MINIWEB_LOG_ERROR("Invalid response attempted! (type: %d)",
+                              response->resp_type);
+            return http_helpers_send_html_file_response(sockfd,
+                                                        ERROR_404_RESPONSE_FILE);
+    }
+}
 
 int http_helpers_send_html_file_response(int sockfd, char const filename[static 1])
 {
@@ -74,6 +97,45 @@ int http_helpers_send_html_file_response(int sockfd, char const filename[static 
     }
 
     return 0;
+}
+
+char const* http_helpers_get_route(char const request[static 1],
+                                   size_t     buflen,
+                                   char       buffer[buflen])
+{
+    assert(request);
+    assert(buffer);
+
+    // Find the start of the route
+    char* route_start = strchr(request, '/');
+    if (!route_start)
+    {
+        MINIWEB_LOG_ERROR("Invalid request received, no route found! Request: %s",
+                          request);
+        return NULL;
+    }
+
+    // Now find the end of that route
+    char* route_end = strchr(route_start, ' ');
+    if (!route_end)
+    {
+        MINIWEB_LOG_ERROR(
+            "Invalid request received, can't find route end! Request: %s", request);
+        return NULL;
+    }
+
+    size_t route_len = route_end - route_start;
+    if (route_len >= buflen)
+    {
+        MINIWEB_LOG_ERROR(
+            "Buffer of size %zu is not big enough for route of len %zu!\n", buflen,
+            route_len);
+        return NULL;
+    }
+
+    strncpy(buffer, route_start, route_len);
+
+    return buffer;
 }
 
 // ==== STATIC FUNCTION IMPLEMENTATIONS ====
