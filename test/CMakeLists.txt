@@ -2,6 +2,7 @@ add_executable(miniweb.t
                main.t.c
                pool.t.c
                hash.t.c
+               thread_pool.t.c
                router.t.c)
 
 # Disable unused parameter warning in test drivers. because I don't care!

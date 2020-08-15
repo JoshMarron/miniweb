@@ -26,6 +26,8 @@ if (DEFINED MINIWEB_COVERAGE_BUILD)
     endif()
 endif()
 
+set(THREADS_PREFER_PTHREAD_FLAG)
+find_package(Threads REQUIRED)
 
 add_subdirectory(src)
 add_subdirectory(test)

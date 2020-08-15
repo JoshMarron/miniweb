@@ -7,6 +7,7 @@ add_library(miniweb
             router.c
             miniweb_response.c
             thread_pool.c
+            itc_queue.c
             server.c)
 
 add_library(miniweb-test
@@ -14,7 +15,12 @@ add_library(miniweb-test
             hash.c
             router.c
             miniweb_response.c
+            thread_pool.c
+            itc_queue.c
             pool.c)
+
+target_link_libraries(miniweb PUBLIC rt Threads::Threads)
+target_link_libraries(miniweb-test PUBLIC rt Threads::Threads)
 
 target_compile_options(miniweb PUBLIC -Wall -Wextra -pedantic -Werror)
 target_compile_options(miniweb-test PRIVATE -DMINIWEB_TESTING)
