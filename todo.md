@@ -1,6 +1,3 @@
-- Implement the basic HTTP protocol for GET requests and be able to send proper responses
-- Implement support for routing for GET requests
 - Implement timing out connections
 - Implement handling requests in a thread pool
 - Implement other HTTP verbs?
-- Implement a way of writing the web server easily with macros rather than having to set up routing through a bunch of function calls

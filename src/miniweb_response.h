@@ -42,8 +42,8 @@ miniweb_response_t miniweb_build_text_response(char const* const text_body);
 miniweb_response_t miniweb_build_file_response(char const* const file_name);
 
 void miniweb_print_response(miniweb_response_t const* const response, FILE* output);
-char* const miniweb_response_to_string(miniweb_response_t const* const response,
-                                       size_t                          buflen,
-                                       char buffer[buflen]);
+char* miniweb_response_to_string(miniweb_response_t const* const response,
+                                 size_t                          buflen,
+                                 char                            buffer[buflen]);
 
 #endif

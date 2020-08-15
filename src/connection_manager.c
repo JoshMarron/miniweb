@@ -104,7 +104,8 @@ bool connection_manager_get_next_event(connection_manager_t* manager,
         manager->current_event_index = 0;
     }
 
-    for (int i = manager->current_event_index; i < manager->connections_num; ++i)
+    for (size_t i = (size_t) manager->current_event_index;
+         i < manager->connections_num; ++i)
     {
         if (manager->connections[i].revents & POLLIN)
         {

@@ -5,11 +5,14 @@
 #include <assert.h>
 #include <string.h>
 
-static const size_t PRINT_BUFFER_SIZE = 2048;
+enum
+{
+    PRINT_BUFFER_SIZE = 2048
+};
 
 // ==== STATIC FUNCTIONS ====
 
-static char* const
+static char*
 miniweb_text_response_to_string(miniweb_response_t const* const response,
                                 size_t                          buflen,
                                 char                            buffer[buflen])
@@ -21,13 +24,13 @@ miniweb_text_response_to_string(miniweb_response_t const* const response,
         snprintf(buffer, buflen, "{MINIWEB_TEXT_RESPONSE: body: `%s`}",
                  response->body.text_response.text_response);
 
-    if (chars_would_write >= buflen)
+    if ((size_t) chars_would_write >= buflen)
     { MINIWEB_LOG_ERROR("Output was truncated when writing text_response"); }
 
     return buffer;
 }
 
-static char* const
+static char*
 miniweb_file_response_to_string(miniweb_response_t const* const response,
                                 size_t                          buflen,
                                 char                            buffer[buflen])
@@ -39,7 +42,7 @@ miniweb_file_response_to_string(miniweb_response_t const* const response,
         snprintf(buffer, buflen, "{MINIWEB_FILE_RESPONSE: file_name: `%s`}",
                  response->body.file_response.file_name);
 
-    if (chars_would_write >= buflen)
+    if ((size_t) chars_would_write >= buflen)
     { MINIWEB_LOG_ERROR("Output was truncated when writing file_response"); }
 
     return buffer;
@@ -79,9 +82,9 @@ void miniweb_print_response(miniweb_response_t const* const response, FILE* outp
             miniweb_response_to_string(response, PRINT_BUFFER_SIZE, print_buffer));
 }
 
-char* const miniweb_response_to_string(miniweb_response_t const* const response,
-                                       size_t                          buflen,
-                                       char buffer[buflen])
+char* miniweb_response_to_string(miniweb_response_t const* const response,
+                                 size_t                          buflen,
+                                 char                            buffer[buflen])
 {
     assert(response);
     assert(buffer);

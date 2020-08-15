@@ -321,7 +321,7 @@ static int miniweb_server_get_bound_socket(char const* const address,
         }
 
         int bind_rc = bind(sockfd, info->ai_addr, info->ai_addrlen);
-        if (rc == -1)
+        if (bind_rc == -1)
         {
             MINIWEB_LOG_ERROR(
                 "Failed to bind socket %d for address: %s and port: %s (%s)", sockfd,

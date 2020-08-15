@@ -10,11 +10,13 @@ miniweb_server_t* g_server = NULL;
 
 void sig_handler(int signum)
 {
+    (void) signum;
     miniweb_server_stop(g_server);
 }
 
 miniweb_response_t default_route_handler(void* user_data, char const request[const])
 {
+    (void) user_data;
     MINIWEB_LOG_INFO("Received request: %s", request);
 
     return miniweb_build_file_response("res/index.html");
@@ -23,11 +25,12 @@ miniweb_response_t default_route_handler(void* user_data, char const request[con
 miniweb_response_t hello_route_handler(void* user_data, char const request[const])
 {
     assert(request);
+    (void) user_data;
 
     return miniweb_build_file_response("res/hello.html");
 }
 
-int main(int argc, char* argv[argc + 1])
+int main(void)
 {
     router_t* router = router_init();
     if (!router)

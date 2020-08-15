@@ -6,6 +6,7 @@ add_library(miniweb
             pool.c
             router.c
             miniweb_response.c
+            thread_pool.c
             server.c)
 
 add_library(miniweb-test
@@ -15,6 +16,7 @@ add_library(miniweb-test
             miniweb_response.c
             pool.c)
 
+target_compile_options(miniweb PUBLIC -Wall -Wextra -pedantic -Werror)
 target_compile_options(miniweb-test PRIVATE -DMINIWEB_TESTING)
 
 add_executable(miniweb.tsk

@@ -21,11 +21,13 @@ static char const OK_HEADER_TEMPLATE[] =
     "HTTP/1.1 200 OK\r\nDate: %s\r\nContent-Type: text/html\r\nConnection: "
     "keep-alive\r\nKeep-Alive: timeout=300\r\nContent-Length: %zu\r\n\r\n";
 
-static char const   DATE_FORMAT[] = "%a, %d %b %Y %T GMT";
-static const size_t DATE_BUF_SIZE = 40;
+static char const DATE_FORMAT[] = "%a, %d %b %Y %T GMT";
 
-static const size_t OK_HEADER_BUF_SIZE =
-    sizeof(OK_HEADER_TEMPLATE) + DATE_BUF_SIZE + 10;
+enum
+{
+    DATE_BUF_SIZE      = 40,
+    OK_HEADER_BUF_SIZE = sizeof(OK_HEADER_TEMPLATE) + DATE_BUF_SIZE + 10
+};
 
 // ==== STATIC PROTOTYPES ====
 
