@@ -3,6 +3,8 @@
 #include "connection_manager.h"
 #include "http_helpers.h"
 #include "logging.h"
+#include "pool.h"
+#include "thread_pool.h"
 
 #include <assert.h>
 #include <errno.h>
@@ -15,14 +17,18 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 // CONSTANTS
 
+static const size_t REQUEST_BUFFER_SIZE     = 1024;
+static const size_t INIT_NUM_REQUEST_BUFFERS = 100;
 static const size_t INITIAL_SERVER_CAPACITY = 10;
 static const int    MAX_QUEUED_CONNECTIONS  = 10;
+static const size_t DEFAULT_NUM_THREADS     = 8;
 
 // ==== STRUCTS ====
 
@@ -32,9 +38,30 @@ struct miniweb_server
     atomic_bool           should_run;
     connection_manager_t* connections;
     router_t*             router;
+    thread_pool_t*        thread_pool;
+
+    // Used to allocate dispatch_job_data structs
+    pool_t* dispatch_pool;
+    pool_t* request_buf_pool;
+};
+
+struct dispatch_job_data
+{
+    int              sock_fd;
+    routerfunc*      process_func;
+    void*            user_data;
+    pool_handle_t    request_buf;
+    pool_handle_t    handle_to_me;
+
+    // We need references back to the pools to be able to free
+    pool_t* dispatch_pool;
+    pool_t* request_pool;
 };
 
 // ==== STATIC PROTOTYPES ====
+
+// Job to run on the thread pool when receiving a request
+static void dispatch_response_job(void* data);
 
 static int miniweb_server_get_bound_socket(char const* const address,
                                            char const* const port);
@@ -92,6 +119,34 @@ int miniweb_server_init(miniweb_server_t* restrict server,
     }
     server->connections = conns;
 
+    thread_pool_t* thread_pool = thread_pool_init(DEFAULT_NUM_THREADS);
+    if (!thread_pool)
+    {
+        MINIWEB_LOG_ERROR("Failed to create thread pool!");
+        miniweb_server_clean(server);
+        return -1;
+    }
+    server->thread_pool = thread_pool;
+
+    pool_t* request_pool = pool_init(REQUEST_BUFFER_SIZE, INIT_NUM_REQUEST_BUFFERS);
+    if (!request_pool)
+    {
+        MINIWEB_LOG_ERROR("Failed to create pool for request buffers!");
+        miniweb_server_clean(server);
+        return -2;
+    }
+    server->request_buf_pool = request_pool;
+
+    pool_t* dispatch_pool =
+        pool_init(sizeof(struct dispatch_job_data), INIT_NUM_REQUEST_BUFFERS);
+    if (!dispatch_pool)
+    {
+        MINIWEB_LOG_ERROR("Failed to create pool for dispatch job structures!");
+        miniweb_server_clean(server);
+        return -3;
+    }
+    server->dispatch_pool = dispatch_pool;
+
     int socket = miniweb_server_get_bound_socket(address, port);
     if (socket == -1)
     {
@@ -112,7 +167,14 @@ int miniweb_server_start(miniweb_server_t* server)
 {
     assert(server);
 
-    int rc = listen(server->sock_fd, MAX_QUEUED_CONNECTIONS);
+    int rc = thread_pool_start(server->thread_pool);
+    if (rc != 0)
+    {
+        MINIWEB_LOG_ERROR("Failed to start thread_pool for server: %d", rc);
+        return -1;
+    }
+
+    rc = listen(server->sock_fd, MAX_QUEUED_CONNECTIONS);
     if (rc == -1)
     {
         MINIWEB_LOG_ERROR("Server failed to start listening on main socket: %d (%s)",
@@ -138,8 +200,11 @@ void miniweb_server_clean(miniweb_server_t* restrict server)
 {
     assert(server);
 
-    router_destroy(server->router);
-    connection_manager_destroy(server->connections);
+    if (server->router) router_destroy(server->router);
+    if (server->connections) connection_manager_destroy(server->connections);
+    if (server->thread_pool) thread_pool_destroy(server->thread_pool);
+    if (server->request_buf_pool) pool_destroy(server->request_buf_pool);
+    if (server->dispatch_pool) pool_destroy(server->dispatch_pool);
     memset(server, 0, sizeof(struct miniweb_server));
 }
 
@@ -229,8 +294,15 @@ static int miniweb_server_process_client_event(struct miniweb_server* server,
 {
     MINIWEB_LOG_INFO("Received event on socket %d", connection_fd);
 
-    char buffer[1024] = {0};
-    int  num_bytes    = recv(connection_fd, buffer, sizeof(buffer), 0);
+    pool_handle_t buf_handle = pool_calloc(server->request_buf_pool);
+    if (!buf_handle.data)
+    {
+        MINIWEB_LOG_ERROR("Failed to get a free request buffer!");
+        return -1;
+    }
+
+    char* buffer       = buf_handle.data;
+    int   num_bytes    = recv(connection_fd, buffer, REQUEST_BUFFER_SIZE, 0);
     if (num_bytes <= 0)
     {
         int rc = 0;
@@ -262,18 +334,55 @@ static int miniweb_server_process_client_event(struct miniweb_server* server,
         return -1;
     }
 
-    miniweb_response_t response =
-        router_invoke_route_func(server->router, route, buffer);
+    // If this is NULL, then our dispatch job will just send back a 404
+    void*       user_data    = NULL;
+    routerfunc* process_func =
+        router_get_route_func(server->router, route, &user_data);
 
-    int rc = http_helpers_send_response(connection_fd, &response);
+    pool_handle_t dispatch_handle = pool_alloc(server->dispatch_pool);
+    *((struct dispatch_job_data*) dispatch_handle.data) =
+        (struct dispatch_job_data) {.sock_fd       = connection_fd,
+                                    .process_func  = process_func,
+                                    .request_buf   = buf_handle,
+                                    .handle_to_me  = dispatch_handle,
+                                    .dispatch_pool = server->dispatch_pool,
+                                    .request_pool  = server->request_buf_pool};
+
+    int rc = thread_pool_run(server->thread_pool, &dispatch_response_job,
+                             dispatch_handle.data);
     if (rc != 0)
     {
-        MINIWEB_LOG_ERROR("Failed to send response to socket %d: %d", connection_fd,
-                          rc);
-        return -2;
+        MINIWEB_LOG_ERROR(
+            "Failed to add response job to the thread pool. Returning 500 error.");
+        miniweb_response_t response = miniweb_build_file_response("res/500.html");
+        return http_helpers_send_response(connection_fd, &response);
     }
 
     return 0;
+}
+
+// Job to run on the threadpool when we get a request
+static void dispatch_response_job(void* data)
+{
+    struct dispatch_job_data* args = data;
+    miniweb_response_t        response = {0};
+
+    if (!args->process_func)
+    { response = miniweb_build_file_response("res/404.html"); }
+    else
+    {
+        response = args->process_func(args->user_data, args->request_buf.data);
+    }
+
+    int rc = http_helpers_send_response(args->sock_fd, &response);
+    if (rc != 0)
+    {
+        MINIWEB_LOG_ERROR("Failed to send response to socket %d: %d", args->sock_fd,
+                          rc);
+    }
+
+    pool_free(args->request_pool, args->request_buf);
+    pool_free(args->dispatch_pool, args->handle_to_me);
 }
 
 static int miniweb_server_get_bound_socket(char const* const address,

@@ -7,6 +7,8 @@ typedef struct thread_pool thread_pool_t;
 typedef void thread_pool_func(void*);
 
 thread_pool_t* thread_pool_init(size_t num_threads);
+int            thread_pool_start(thread_pool_t* restrict pool);
+int            thread_pool_stop(thread_pool_t* restrict pool);
 void           thread_pool_destroy(thread_pool_t* restrict pool);
 
 int thread_pool_run(thread_pool_t* restrict pool,

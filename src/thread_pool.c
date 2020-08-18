@@ -3,8 +3,10 @@
 #include "itc_queue.h"
 #include "logging.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <string.h>
 #include <time.h>
 
@@ -16,8 +18,6 @@
 
 enum
 {
-    WRITER_MQ_FLAGS        = O_WRONLY | O_CREAT | O_EXCL,
-    READER_MQ_FLAGS        = O_RDONLY,
     MESSAGE_BUF_SIZE_BYTES = 1024,
 };
 
@@ -61,6 +61,7 @@ struct thread_pool
     struct thread_pool_thread_state* threads;
     size_t                           num_threads;
     itc_queue_t*                     job_queue;
+    bool                             is_running;
 };
 
 // ==== STATIC FUNCTIONS ====
@@ -108,8 +109,10 @@ void* thread_pool_job(void* data)
     }
 }
 
-int thread_pool_stop(struct thread_pool* pool)
+int thread_pool_stop(struct thread_pool* restrict pool)
 {
+    assert(pool->is_running);
+
     bool all_sent = true;
     for (size_t i = 0; i < pool->num_threads; ++i)
     {
@@ -142,11 +145,15 @@ int thread_pool_stop(struct thread_pool* pool)
         }
     }
 
+    pool->is_running = false;
+
     return 0;
 }
 
-static int thread_pool_start(struct thread_pool* restrict pool)
+int thread_pool_start(struct thread_pool* restrict pool)
 {
+    assert(!pool->is_running);
+
     pthread_mutex_t* mutexes = calloc(pool->num_threads, sizeof(pthread_mutex_t));
     if (!mutexes)
     {
@@ -208,6 +215,8 @@ static int thread_pool_start(struct thread_pool* restrict pool)
     free(conds);
     free(mutexes);
 
+    pool->is_running = true;
+
     return 0;
 }
 
@@ -245,15 +254,12 @@ struct thread_pool* thread_pool_init(size_t num_threads)
     }
     pool->job_queue = queue;
 
-    // Start the threads
-    thread_pool_start(pool);
-
     return pool;
 }
 
 void thread_pool_destroy(struct thread_pool* restrict pool)
 {
-    thread_pool_stop(pool);
+    if (pool->is_running) thread_pool_stop(pool);
     itc_queue_destroy(pool->job_queue);
 
     free(pool->threads);
@@ -264,6 +270,8 @@ int thread_pool_run(struct thread_pool* restrict pool,
                     thread_pool_func*            func,
                     void*                        data)
 {
+    assert(pool->is_running);
+
     struct mq_data message = {
         .type = MQ_FUNC_EXEC,
         .data = (union mq_data_union) {

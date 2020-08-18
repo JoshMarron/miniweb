@@ -4,6 +4,7 @@
 #include "logging.h"
 #include "pool.h"
 
+#include <assert.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -117,8 +118,12 @@ int router_add_route_inner(struct router* restrict router,
 }
 
 routerfunc* router_get_route_func(struct router const* restrict router,
-                                  char const                    route[static 1])
+                                  char const                    route[static 1],
+                                  void**                        user_data)
 {
+    assert(router);
+    assert(user_data);
+
     struct route* found_route = hash_find(router->route_table, route);
     if (!found_route)
     {
@@ -137,8 +142,7 @@ miniweb_response_t router_invoke_route_func(struct router const* restrict router
     if (!found_route)
     {
         MINIWEB_LOG_ERROR("Could not find route %s in router_table", route);
-        // TODO: Make this return a proper 404
-        return miniweb_build_text_response("404");
+        return miniweb_build_file_response("res/404.html");
     }
 
     return found_route->func(found_route->user_data, request);

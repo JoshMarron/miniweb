@@ -26,7 +26,8 @@ int router_add_route_inner(router_t* restrict router,
                            void*              user_data);
 
 routerfunc*        router_get_route_func(router_t const* restrict router,
-                                         char const               route[static 1]);
+                                         char const               route[static 1],
+                                         void**                   user_data);
 miniweb_response_t router_invoke_route_func(router_t const* restrict router,
                                             char const               route[static 1],
                                             char const* const        request);

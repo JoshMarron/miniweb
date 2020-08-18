@@ -34,7 +34,8 @@ static void test_router_basic_test(void** state)
     int rc = router_add_route(router, "testroute", test_callback, &test_data);
     assert_int_equal(0, rc);
 
-    routerfunc* func = router_get_route_func(router, "testroute");
+    void*       user_data = NULL;
+    routerfunc* func      = router_get_route_func(router, "testroute", &user_data);
     assert_non_null(func);
 
     miniweb_response_t response = func(&test_data, "This is a fake request");
@@ -55,7 +56,8 @@ static void test_returns_null_on_route_not_find(void** state)
     router_t* router = router_init();
     assert_non_null(router);
 
-    routerfunc* func = router_get_route_func(router, "notfoundroute");
+    void*       user_data = NULL;
+    routerfunc* func = router_get_route_func(router, "notfoundroute", &user_data);
     assert_null(func);
 
     miniweb_response_t response =
